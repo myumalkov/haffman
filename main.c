@@ -26,113 +26,92 @@ typedef struct PriorityQueue {
 } PriorityQueue;
 
 
-PriorityQueue* new_priority_queue();
 Node* new_node(char letter, int frequence, int isLeaf, Node* leftChild, Node* rightChild);
 void delete_node(Node* n);
-void push(PriorityQueue* pq, const Node* data);
-Node* pop(PriorityQueue* pq);
-Node* create_haffman_tree(PriorityQueue* pq);
+PriorityQueue* new_priority_queue();
+void push(PriorityQueue* priority_queue, Node* data);
+Node* pop(PriorityQueue* priority_queue);
 
-/***************************************** DEBUG ***********************************************/
+Node* create_haffman_tree(PriorityQueue* priority_queue);
+void encode(Node* haffman_tree_root, char* string, char haffman_tree_dictionary[ASCII_SIZE][CHAR_BITSIZE + 1]);
+void decode(Node* haffman_tree_root);
+
+
+/************************************** DEBUG OUTPUT *******************************************/
 
 void print_node(Node* node);
-void print_queue(PriorityQueue* pq);
-void print_haffman_tree(Node* haffman_tree_root);
-
-void create_haffman_table(Node* haffman_tree_node, char buffer[CHAR_BITSIZE + 1], char haffman_table[ASCII_SIZE][CHAR_BITSIZE + 1], int depth)
-{
-    if (!(haffman_tree_node->isLeaf)) {
-        buffer[depth] = '0';
-        create_haffman_table(haffman_tree_node->leftChild, buffer, haffman_table, depth + 1);
-        buffer[depth] = '1';
-        create_haffman_table(haffman_tree_node->rightChild, buffer, haffman_table, depth + 1);
-        return;
-    }
-    buffer[depth] = '\0';
-    for (int i = 0; i <= CHAR_BITSIZE; ++i)
-        haffman_table[haffman_tree_node->letter][i] = buffer[i];
-}
-
-void unzip(char* unzipped_string, char* zipped_string, Node* haffman_tree_root)
-{
-    int j = 0;
-    Node current_haffman_tree_node = *haffman_tree_root;
-    for (int i = 0; i < strlen(zipped_string); ++i) {
-        if (current_haffman_tree_node.isLeaf) {
-            unzipped_string[j++] = current_haffman_tree_node.letter;
-            current_haffman_tree_node = *haffman_tree_root;
-        } 
-        else
-            if (zipped_string[i] == '0')
-                current_haffman_tree_node = *current_haffman_tree_node.leftChild;
-            else
-                current_haffman_tree_node = *current_haffman_tree_node.rightChild;
-    }
-    zipped_string[j] = '\0';
-}
+void print_priority_queue(PriorityQueue* priority_queue);
+void print_haffman_tree_dictionary(char haffman_tree_dictionary[ASCII_SIZE][CHAR_BITSIZE + 1]);
 
 /****************************************** MAIN ***********************************************/
 
-int main()
-{
-    char* string;
-    scanf("%m[^\n]*", &string);
 
+int main(int argc, char* argv[])
+{
+    // DEBUG INPUT
+    FILE* input;
+    input = fopen("tests/input.txt", "r");
+    char* string;
+    fscanf(input, "%m[^\n]*", &string);
+    fclose(input);
+
+    // frequency table initialization
     int frequencies[ASCII_SIZE] = { 0 };
     for (int i = 0; i < strlen(string); ++i)
         ++frequencies[string[i]];
 
-    PriorityQueue* pq = new_priority_queue();
-
+    // priority queue initialization
+    PriorityQueue* priority_queue = new_priority_queue();
     for (int i = 0; i < ASCII_SIZE; ++i) {
         if (frequencies[i] != 0) 
-            push(pq, new_node(i, frequencies[i], 1, NULL, NULL));
+            push(priority_queue, new_node(i, frequencies[i], 1, NULL, NULL));
     }
-    print_queue(pq);
+    print_priority_queue(priority_queue);
 
-    Node* haffman_tree_root = create_haffman_tree(pq);
-    print_haffman_tree(haffman_tree_root);
+    // building a huffman tree
+    Node* haffman_tree_root = create_haffman_tree(priority_queue);
 
-    char buffer[CHAR_BITSIZE + 1];
-    char haffman_table[ASCII_SIZE][CHAR_BITSIZE + 1];
-    create_haffman_table(haffman_tree_root, buffer, haffman_table, 0);
+    // huffman tree dictionary initialization
+    char haffman_tree_dictionary[ASCII_SIZE][CHAR_BITSIZE + 1] = { 0 };
+    encode(haffman_tree_root, string, haffman_tree_dictionary);
+    print_haffman_tree_dictionary(haffman_tree_dictionary);
 
-    printf("\n%s = ", string);
-    char* zipped_string = malloc(strlen(string) * CHAR_BITSIZE + 1);
-    int k = 0;
+    // DEBUG OUTPUT
+    FILE* output = fopen("tests/output.txt", "w");
     for (int i = 0; i < strlen(string); ++i)
-        //printf("%s", haffman_table[string[i]]);
-        for (int j = 0; j < strlen(haffman_table[string[i]]); ++j)
-            zipped_string[k++] = haffman_table[string[i]][j];
-    zipped_string[k] = '\0';
-    printf("%s\n", zipped_string);
-
-    char* unzipped_string = malloc(strlen(string) + 1);
-    unzip(unzipped_string, zipped_string, haffman_tree_root);
-    printf("unzipped string: %s", unzipped_string);
-
+        fprintf(output, "%s", haffman_tree_dictionary[string[i]]);
+    fclose(output);
+    output = fopen("tests/huffman_tree_dictionary.txt", "w");
+    for (int i = 0; i < ASCII_SIZE; ++i)
+        if (haffman_tree_dictionary[i][0] != '\0')
+            fprintf(output, "%c %s\n", i, haffman_tree_dictionary[i]);
+    fclose(output);
+    
+    // MEMORY CLEARING
+    free(string);
 
     return 0;
 }
 
 /***********************************************************************************************/
 
-void swap(Node** n1, Node** n2)
+
+void swap(Node** node1, Node** node2)
 {
-    Node* temp = *n1;
-    *n1 = *n2;
-    *n2 = temp;
+    Node* temp = *node1;
+    *node1 = *node2;
+    *node2 = temp;
 }
 
 
 PriorityQueue* new_priority_queue()
 {
-    PriorityQueue* pq = malloc(sizeof(PriorityQueue));
-    pq->size = 0;
+    PriorityQueue* priority_queue = malloc(sizeof(PriorityQueue));
+    priority_queue->size = 0;
     for (int i = 0; i < PRIORITY_QUEUE_CAPACITY; ++i)
-        pq->data[i] = NULL;
+        priority_queue->data[i] = NULL;
 
-    return pq;
+    return priority_queue;
 }
 
 
@@ -149,32 +128,32 @@ Node* new_node(char letter, int frequence, int isLeaf, Node* leftChild, Node* ri
 }
 
 
-void heapify(PriorityQueue* pq, int i)
+void heapify(PriorityQueue* priority_queue, int i)
 {
     int least = i;
     int left = LEFT_CHILD(i);
     int right = RIGHT_CHILD(i);
 
-    if (left < pq->size && pq->data[left]->frequence < pq->data[least]->frequence) {
+    if (left < priority_queue->size && priority_queue->data[left]->frequence < priority_queue->data[least]->frequence) {
         least = left;
     }
-    if (right < pq->size && pq->data[right]->frequence < pq->data[least]->frequence) {
+    if (right < priority_queue->size && priority_queue->data[right]->frequence < priority_queue->data[least]->frequence) {
         least = right;
     }
     if (least != i) {
-        swap(&pq->data[i], &pq->data[least]);
-        heapify(pq, least);
+        swap(&priority_queue->data[i], &priority_queue->data[least]);
+        heapify(priority_queue, least);
     }
 }
 
 
-void push(PriorityQueue* pq, const Node* new_node)
+void push(PriorityQueue* priority_queue, Node* new_node)
 {
-    int i = pq->size;        
+    int i = priority_queue->size;        
     int parent = PARENT(i);
-    pq->data[pq->size++] = new_node;
-    while (pq->data[i]->frequence < pq->data[parent]->frequence) {
-        swap(&pq->data[i], &pq->data[parent]);
+    priority_queue->data[priority_queue->size++] = new_node;
+    while (priority_queue->data[i]->frequence < priority_queue->data[parent]->frequence) {
+        swap(&priority_queue->data[i], &priority_queue->data[parent]);
         i = parent;
         parent = PARENT(i);
     }
@@ -187,35 +166,53 @@ void delete_node(Node* n)
 }
 
 
-Node* top(PriorityQueue* pq)
+Node* pop(PriorityQueue* priority_queue)
 {
-    return pq->data[0];
-}
-
-
-Node* pop(PriorityQueue* pq)
-{
-    Node* top = pq->data[0];
-    pq->data[0] = pq->data[--pq->size];
-    pq->data[pq->size] = NULL;
-    heapify(pq, 0);
+    Node* top = priority_queue->data[0];
+    priority_queue->data[0] = priority_queue->data[--priority_queue->size];
+    priority_queue->data[priority_queue->size] = NULL;
+    heapify(priority_queue, 0);
 
     return top;
 }
 
 
-Node* create_haffman_tree(PriorityQueue* pq)
+Node* create_haffman_tree(PriorityQueue* priority_queue)
 {
-    while (pq->size > 1) {
-        Node* top1 = pop(pq);
-        Node* top2 = pop(pq);
+    while (priority_queue->size > 1) {
+        Node* top1 = pop(priority_queue);
+        Node* top2 = pop(priority_queue);
         if (top1->frequence > top2->frequence)
-            push(pq, new_node(0, top1->frequence + top2->frequence, 0, top1, top2));
+            push(priority_queue, new_node(0, top1->frequence + top2->frequence, 0, top1, top2));
         else
-            push(pq, new_node(0, top1->frequence + top2->frequence, 0, top2, top1));
+            push(priority_queue, new_node(0, top1->frequence + top2->frequence, 0, top2, top1));
     }
 
-    return pq->data[0];
+    return priority_queue->data[0];
+}
+
+
+void recursive_encoding(Node* haffman_tree_node, char* string, char haffman_tree_dictionary[ASCII_SIZE][CHAR_BITSIZE + 1], 
+                        char buffer[CHAR_BITSIZE + 1], int depth)
+{
+    if (haffman_tree_node->isLeaf) {
+        buffer[depth] = '\0';
+        for (int i = 0; i <= CHAR_BITSIZE; ++i) {
+            haffman_tree_dictionary[haffman_tree_node->letter][i] = buffer[i];
+        }
+        return;
+    }
+    buffer[depth] = '0';
+    recursive_encoding(haffman_tree_node->leftChild, string, haffman_tree_dictionary, buffer, depth + 1);
+    buffer[depth] = '1';
+    recursive_encoding(haffman_tree_node->rightChild, string, haffman_tree_dictionary, buffer, depth + 1);
+}
+
+
+void encode(Node* haffman_tree_root, char* string, char haffman_tree_dictionary[ASCII_SIZE][CHAR_BITSIZE + 1])
+{
+    char buffer[CHAR_BITSIZE + 1] = { 0 };
+    recursive_encoding(haffman_tree_root, string, haffman_tree_dictionary, buffer, 0);
 }
 
 
@@ -227,37 +224,25 @@ void print_node(Node* node)
     }
 
     if (node->isLeaf)
-        printf("%c' : %i\n", node->letter, node->frequence);
+        printf("'%c' : %i\n", node->letter, node->frequence);
     else
         printf("NODE : %i\n", node->frequence);
 }
 
 
-void print_queue(PriorityQueue* pq) 
+void print_priority_queue(PriorityQueue* priority_queue) 
 {
-    printf("\nSIZE = %i\n", pq->size);
-    for (int i = 0; i < pq->size; ++i)
-        print_node(pq->data[i]);
+    printf("\nPRIORITY QUEUE\n");
+    printf("SIZE = %i\n", priority_queue->size);
+    for (int i = 0; i < priority_queue->size; ++i)
+        print_node(priority_queue->data[i]);
 }
 
 
-void print_ht(Node* haffman_tree_node, char buffer[CHAR_BITSIZE + 1], int depth)
+void print_haffman_tree_dictionary(char haffman_tree_dictionary[ASCII_SIZE][CHAR_BITSIZE + 1])
 {
-    if (!(haffman_tree_node->isLeaf)) {
-        buffer[depth] = '0';
-        print_ht(haffman_tree_node->leftChild, buffer, depth + 1);
-        buffer[depth] = '1';
-        print_ht(haffman_tree_node->rightChild, buffer, depth + 1);
-        return;
-    }
-    buffer[depth] = '\0';
-    printf("'%c' : %s\n", haffman_tree_node->letter, buffer, haffman_tree_node->letter);
-}
-
-
-void print_haffman_tree(Node* haffman_tree_root)
-{
-    printf("\nHaffman Tree:\n");
-    char buffer[CHAR_BITSIZE + 1];
-    print_ht(haffman_tree_root, buffer, 0);
+    printf("\nHAFFMAN TREE DICTIONARY\n");
+    for (int i = 0; i < ASCII_SIZE; ++i)
+        if (haffman_tree_dictionary[i][0] != '\0')
+            printf("'%c' : %s\n", i, haffman_tree_dictionary[i]);
 }
